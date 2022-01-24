@@ -10,10 +10,10 @@ Write-Host -ForegroundColor Yellow "2: Disable Administrators"
 Write-Host -ForegroundColor Yellow "3: Install Applications"
 Write-Host -ForegroundColor Yellow "4: Enable Desktop Icons"
 Write-Host -ForegroundColor Yellow "5: Enable Hidden Items"
-Write-Host -ForegroundColor Yellow "6: Set Edge Home Page"
+Write-Host -ForegroundColor Yellow "6: Set Edge Home Page (Disabled)"
 Write-Host -ForegroundColor Yellow "7: Power Button (Shutdown)"
 Write-Host -ForegroundColor Yellow "8: Show All Tray icons"
-Write-Host -ForegroundColor Yellow "9: Disable BSOD Reboot"
+Write-Host -ForegroundColor Yellow "9: System Protection"
 Write-Host -ForegroundColor Yellow "10: TaskBar Cleanup"
 Write-Host -ForegroundColor Red "Q: Press 'Q' to Quit"
 
@@ -27,7 +27,7 @@ Switch ($selection)
     '3'{ InstallApps }
     '4'{ DskIcons }
     '5'{ FileHidden}
-    '6'{ EdgeHome}
+    '6'{ return Dismenu}
     '7'{ Powerbtn }
     '8'{ EnableTray }
     '9'{ DisBluescreen }
@@ -39,24 +39,27 @@ Function tskbarcln
 {
 #Disable Cortana
 Write-Host " Disabled Cortana Button!"
-Set-ItemProperty -Path "HKLM:\SOFTWARE\Policies\Microsoft\Windows" -Name "AllowCortana" -Value "0"
+Set-ItemProperty -Path "Registry::HKEY_LOCAL_MACHINE\SOFTWARE\Policies\Microsoft\Windows" -Name "AllowCortana" -Value "0"
 
 #Disable TaskView
 Write-Host " Disable TaskView Button!"
-Set-ItemProperty -Path "HKCU:\SOFTWARE\Microsoft\Windows\CurrentVersion\Explorer\Advanced" -Name "ShowTaskViewButton" -Value "0"
+Set-ItemProperty -Path "Registry::HKEY_CURRENT_USER\SOFTWARE\Microsoft\Windows\CurrentVersion\Explorer\Advanced" -Name "ShowTaskViewButton" -Value "0"
 
 #Disable News
 Write-Host " Disable News & Interests!"
-New-ItemProperty -Path "HKCU:\Software\Microsoft\Windows\CurrentVersion\Feeds" -Name "ShellFeedsTaskbarViewMode" -Value "2"
+New-ItemProperty -Path "Registry::HKEY_CURRENT_USER\Software\Microsoft\Windows\CurrentVersion\Feeds" -Name "ShellFeedsTaskbarViewMode" -Value "2"
 
 #Hide Search Bar
 Write-Host " Hide Search Box!"
-Set-ItemProperty -Path "HKCU:\Software\Microsoft\Windows\CurrentVersion\Search" -Name "SearchboxTaskbarMode" -Value "0"
+Set-ItemProperty -Path "Registry::HKEY_CURRENT_USER\Software\Microsoft\Windows\CurrentVersion\Search" -Name "SearchboxTaskbarMode" -Value "0"
 
 #Disable Bing Search
 Write-Host " Bing Disabled from Search"
-Set-ItemProperty -Path "HKCU:\Software\Microsoft\Windows\CurrentVersion\Search" -Name "BingSearchEnabled" -Value "0"
+Set-ItemProperty -Path "Registry::HKEY_CURRENT_USER\Software\Microsoft\Windows\CurrentVersion\Search" -Name "BingSearchEnabled" -Value "0"
 
+#Disable First Welcome Screen
+Write-Host "Disabled Windows Welcome Animation"
+Set-ItemProperty -Path "Registry::HKEY_LOCAL_MACHINE\SOFTWARE\Microsoft\Windows\CurrentVersion\Policies\System" -Name EnableFirstLogonAnimation -value 0
 return DisMenu
 }
 
@@ -196,21 +199,14 @@ function Install-Chrome
 function Install-Adobe
 {
     Write-Progress -Activity 'Installation of Adobe' -Status 'Downloading' -PercentComplete 0
-        $DownloadPath = "https://admdownload.adobe.com/bin/live/readerdc_fr_ha_crd_gocd_install.exe"
-        $SoftwarePath = "C:\Temp\readerdc_fr_ha_crd_gocd_install.exe"
+        $DownloadPath = "https://get.adobe.com/reader/completion/?installer=Reader_DC_2021.007.20099_French_for_Windows&stype=7787&direct=true&standalone=1"
+        $SoftwarePath = "Reader_DC_2021.007.20099_French_for_Windows.exe"
     Write-Progress -Activity 'Installation of Adobe' -Status 'Installing' -PercentComplete 25
         $WebClient = New-Object System.Net.WebClient
         $WebClient.DownloadFile($DownloadPath, $SoftwarePath)
-        $InstallExitCode = (Start-Process -FilePath $SoftwarePath -ArgumentList "/sAll" -Wait -Verb RunAs -PassThru)
+        Start-Process -FilePath $SoftwarePath -ArgumentList "-sfx_nu /sAll /rs /msi EULA_ACCEPT=YES" -Wait -Verb RunAs -PassThru
         Write-Progress -Activity 'Installation of Adobe' -Status 'Cleaning Up' -PercentComplete 87
-        Start-Sleep 15
-        If ($InstallExitCode -eq 0) {
-            If (!$Silent) {Write-Progress -Activity 'Installation of Adobe' -Status 'Completed' -PercentComplete 100}
-            Return DisMenu
-        } Else {
-            Write-Progress -Activity 'Installation of Adobe' -Status 'Failed'
-            Return DisMenu
-        }# End Else
+        
         Return DisMenu
 }
 #Installation 7-Zip
@@ -222,7 +218,7 @@ function Install-Zip
     Write-Progress -Activity 'Installation of Zip' -Status 'Installing' -PercentComplete 25
         $WebClient = New-Object System.Net.WebClient
         $WebClient.DownloadFile($DownloadPath, $SoftwarePath)
-        $InstallExitCode = (Start-Process -FilePath $SoftwarePath -ArgumentList "/S" -Wait -verb RunAs)
+        $InstallExitCode = (Start-Process -FilePath $SoftwarePath -ArgumentList "/S /D='%SystemDrive%\Program Files\7-Zip'" -Wait -Verb RunAs -PassThru)
         Write-Progress -Activity 'Installation of Zip' -Status 'Cleaning Up' -PercentComplete 87
         Start-Sleep 15
         If ($InstallExitCode -eq 0) {
@@ -266,13 +262,16 @@ function DskIcons
 {
 
     #Enable User Folder
-    New-Itemproperty -path 'HKCU:\Software\Microsoft\Windows\CurrentVersion\Explorer\HideDesktopIcons\NewStartPanel' -Name '{59031a47-3f72-44a7-89c5-5595fe6b30ee}' -value '0'
+    Set-Itemproperty -path 'Registry::HKEY_LOCAL_MACHINE\SOFTWARE\Microsoft\Windows\CurrentVersion\Explorer\HideDesktopIcons\NewStartPanel' -Name '{59031a47-3f72-44a7-89c5-5595fe6b30ee}' -value '0' -Force
+    New-Itemproperty -path 'Registry::HKEY_LOCAL_MACHINE\Software\Microsoft\Windows\CurrentVersion\Explorer\HideDesktopIcons\ClassicStartMenu' -Name '{645FF040-5081-101B-9F08-00AA002F954E}' -value '0'-Type Dword -Force
 
     #Enable Recycle Bin
-    New-Itemproperty -path 'HKCU:\Software\Microsoft\Windows\CurrentVersion\Explorer\HideDesktopIcons\NewStartPanel' -Name '{645FF040-5081-101B-9F08-00AA002F954E}' -value '0'
+    Set-Itemproperty -path 'Registry::HKEY_LOCAL_MACHINE\Software\Microsoft\Windows\CurrentVersion\Explorer\HideDesktopIcons\NewStartPanel' -Name '{645FF040-5081-101B-9F08-00AA002F954E}' -value '0' -Force
+    New-Itemproperty -path 'Registry::HKEY_LOCAL_MACHINE\Software\Microsoft\Windows\CurrentVersion\Explorer\HideDesktopIcons\ClassicStartMenu' -Name '{645FF040-5081-101B-9F08-00AA002F954E}' -value '0' -Type Dword -Force
 
     #Enable This PC Icon
-    New-Itemproperty -path 'HKCU:\Software\Microsoft\Windows\CurrentVersion\Explorer\HideDesktopIcons\NewStartPanel' -Name '{20D04FE0-3AEA-1069-A2D8-08002B30309D}' -value '0'
+    Set-Itemproperty -path 'Registry::HKEY_LOCAL_MACHINE\Software\Microsoft\Windows\CurrentVersion\Explorer\HideDesktopIcons\NewStartPanel' -Name '{20D04FE0-3AEA-1069-A2D8-08002B30309D}' -value '0' -Force
+    New-Itemproperty -path 'Registry::HKEY_LOCAL_MACHINE\Software\Microsoft\Windows\CurrentVersion\Explorer\HideDesktopIcons\ClassicStartMenu' -Name '{20D04FE0-3AEA-1069-A2D8-08002B30309D}' -value '0' -Type Dword -Force
 
     Stop-Process -ProcessName Explorer
     Start-Sleep 5
@@ -282,25 +281,18 @@ function DskIcons
 #Enable Hidden Files/Folders
 function FileHidden {
     #Enable Hidden Folders and Files
-    Set-ItemProperty -path "HKCU:\Software\Microsoft\Windows\CurrentVersion\Explorer\Advanced" -Name "Hidden" -value 1
+    Set-ItemProperty -path "Registry::HKEY_LOCAL_MACHINE\Software\Microsoft\Windows\CurrentVersion\Explorer\Advanced" -Name "Hidden" -value 1
+    #Windows 11 Key Changes
     Stop-Process -ProcessName Explorer
     Return DisMenu
 }
 
 #Disabled (Windows Violation to Edit Homepage)
-<#
-function EdgeHome{
-    New-Item -Path "Registry::HKCU:\Software\Policies\Microsoft\Edge" -Name "RestoreOnStartupURLs" -Force
-    Set-ItemProperty -Path "Registry::HKCU:\Software\Policies\Microsoft\Edge\RestoreOnStartupURLs" -Name "1" -Value "https://one-sky.ca" -Force
-    Start-Sleep 5
-    Return DisMenu
-}
-#>
+
 #Enable All Taskbar Icons
 function EnableTray
 {
-    Set-ItemProperty -Path "HKCU:\Software\Microsoft\Windows\CurrentVersion\Explorer" -Name "EnableAutoTray" -Value 0 -Force
-    Stop-Process -name "Explorer" -Force
+    Set-ItemProperty -Path "Registry::HKEY_CURRENT_USER\Software\Microsoft\Windows\CurrentVersion\Explorer" -Name "EnableAutoTray" -Value 0 -Force
     Write-Host "Tray Enabled"
     Start-Sleep 5
     Stop-Process -ProcessName Explorer
@@ -311,6 +303,18 @@ function DisBluescreen
 {
     wmic RecoverOS set AutoReboot = False
     Write-Host "BSOD Auto Reboot Disabled!"
+
+    Enable-ComputerRestore -Drive "C:"
+    Write-Host "Shadow Copy Enabled Drive C:\"
+    Start-Process "%windir%\System32\SystemPropertiesProtection.exe"
+
+    Write-Host "Disable Laptop Lid - <Set to Do Nothing>"
+    powercfg -setdcvalueindex SCHEME_CURRENT 4f971e89-eebd-4455-a8de-9e59040e7347 5ca83367-6e45-459f-a27b-476b1d01c936 0
+    powercfg -setacvalueindex SCHEME_CURRENT 4f971e89-eebd-4455-a8de-9e59040e7347 5ca83367-6e45-459f-a27b-476b1d01c936 0
+    powercfg -SetActive SCHEME_CURRENT
+    Start-Sleep 10
+    Write-Host -ForegroundColor Green "Done!"
+
     Return DisMenu
 }
 
